@@ -2,41 +2,37 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Geometry Dash Browser Clone</title>
+<title>Geometry Dash Browser</title>
 
 <style>
 body{
-  margin:0;
-  overflow:hidden;
-  background:#0f0f0f;
-  font-family:Arial;
+margin:0;
+overflow:hidden;
+background:#0f0f0f;
+font-family:Arial;
 }
 
 canvas{
-  display:block;
-  margin:auto;
-  background:#1c1c1c;
+display:block;
+margin:auto;
+background:#1c1c1c;
 }
 
 #ui{
-  position:absolute;
-  top:10px;
-  left:10px;
-  color:white;
-  font-size:18px;
-}
-
-#ui span{
-  margin-right:15px;
+position:absolute;
+top:10px;
+left:10px;
+color:white;
+font-size:18px;
 }
 </style>
-
 </head>
+
 <body>
 
 <div id="ui">
-<span>Score: <b id="score">0</b></span>
-<span>High Score: <b id="high">0</b></span>
+Score: <b id="score">0</b> |
+High: <b id="high">0</b>
 </div>
 
 <canvas id="game"></canvas>
@@ -62,6 +58,7 @@ grounded:false,
 rotation:0
 };
 
+let particles=[];
 let obstacles=[];
 let frame=0;
 let score=0;
@@ -70,16 +67,48 @@ let gameOver=false;
 let highScore = localStorage.getItem("gd_high") || 0;
 document.getElementById("high").textContent = highScore;
 
+function playJumpSound(){
+
+let audio = new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg");
+audio.volume=0.3;
+audio.play();
+
+}
+
+function playDeathSound(){
+
+let audio = new Audio("https://actions.google.com/sounds/v1/cartoon/concussive_drum_hit.ogg");
+audio.volume=0.4;
+audio.play();
+
+}
+
+function spawnParticles(x,y,color){
+
+for(let i=0;i<12;i++){
+
+particles.push({
+x:x,
+y:y,
+vx:(Math.random()-0.5)*4,
+vy:(Math.random()-1.5)*4,
+life:40,
+color:color
+});
+
+}
+
+}
+
 function spawnObstacle(){
 
 let r = Math.random();
-
 let type="spike";
 
-if(r < 0.3) type="spike";
-else if(r < 0.55) type="double";
-else if(r < 0.75) type="block";
-else if(r < 0.9) type="jumppad";
+if(r<0.3) type="spike";
+else if(r<0.55) type="double";
+else if(r<0.75) type="block";
+else if(r<0.9) type="jumppad";
 else type="portal";
 
 obstacles.push({
@@ -94,9 +123,15 @@ y:300
 
 function jump(){
 
-if(player.grounded){
+if(player.grounded && !gameOver){
+
 player.dy = player.jump * gravityDirection;
 player.grounded=false;
+
+spawnParticles(player.x+15,player.y+30,"#00ffcc");
+
+playJumpSound();
+
 }
 
 }
@@ -115,12 +150,17 @@ canvas.addEventListener("touchstart",jump);
 
 function update(){
 
-if(gameOver) return;
+if(gameOver){
+
+updateParticles();
+return;
+
+}
 
 frame++;
 score++;
 
-if(frame % 110 ===0) spawnObstacle();
+if(frame%110===0) spawnObstacle();
 
 player.dy += player.gravity * gravityDirection;
 player.y += player.dy;
@@ -129,11 +169,9 @@ if(!player.grounded){
 player.rotation += 0.15 * gravityDirection;
 }
 
-let groundY = gravityDirection === 1 ? 300 : 0;
+if(gravityDirection===1){
 
-if(gravityDirection === 1){
-
-if(player.y > 300){
+if(player.y>300){
 player.y=300;
 player.dy=0;
 player.grounded=true;
@@ -142,7 +180,7 @@ player.rotation=0;
 
 }else{
 
-if(player.y < 0){
+if(player.y<0){
 player.y=0;
 player.dy=0;
 player.grounded=true;
@@ -158,12 +196,13 @@ o.x -=6;
 if(o.type==="jumppad"){
 
 if(
-player.x < o.x + 30 &&
+player.x < o.x+30 &&
 player.x + player.size > o.x &&
-player.y + player.size >= 300 &&
-player.y + player.size <= 310
+player.y + player.size >=300 &&
+player.y + player.size <=310
 ){
-player.dy = -16 * gravityDirection;
+player.dy=-16*gravityDirection;
+spawnParticles(player.x+15,player.y+30,"#00aaff");
 }
 
 }
@@ -171,46 +210,76 @@ player.dy = -16 * gravityDirection;
 if(o.type==="portal"){
 
 if(
-player.x < o.x + 30 &&
+player.x < o.x+30 &&
 player.x + player.size > o.x &&
-player.y < o.y + 30 &&
+player.y < o.y+30 &&
 player.y + player.size > o.y
 ){
-
-gravityDirection *= -1;
-
+gravityDirection*=-1;
+spawnParticles(player.x+15,player.y+15,"#bb55ff");
 }
 
 }
 
-if(o.type==="spike" || o.type==="block" || o.type==="double"){
+if(o.type==="spike"||o.type==="block"||o.type==="double"){
 
-let width = o.type==="double" ? 60 : 30;
+let width=o.type==="double"?60:30;
 
 if(
-player.x < o.x + width &&
+player.x < o.x+width &&
 player.x + player.size > o.x &&
-player.y < o.y + 30 &&
+player.y < o.y+30 &&
 player.y + player.size > o.y
 ){
+
 gameOver=true;
+playDeathSound();
+spawnParticles(player.x+15,player.y+15,"#ff4444");
+
 }
 
 }
 
 });
 
-obstacles = obstacles.filter(o=>o.x > -100);
+obstacles = obstacles.filter(o=>o.x>-100);
 
-document.getElementById("score").textContent = score;
+updateParticles();
+
+document.getElementById("score").textContent=score;
 
 if(gameOver){
 
-if(score > highScore){
+if(score>highScore){
 localStorage.setItem("gd_high",score);
 }
 
 }
+
+}
+
+function updateParticles(){
+
+particles.forEach(p=>{
+
+p.x += p.vx;
+p.y += p.vy;
+p.life--;
+
+});
+
+particles = particles.filter(p=>p.life>0);
+
+}
+
+function drawParticles(){
+
+particles.forEach(p=>{
+
+ctx.fillStyle=p.color;
+ctx.fillRect(p.x,p.y,4,4);
+
+});
 
 }
 
@@ -308,14 +377,21 @@ drawCube();
 
 obstacles.forEach(drawObstacle);
 
+drawParticles();
+
 if(gameOver){
 
-ctx.fillStyle="white";
-ctx.font="40px Arial";
-ctx.fillText("Game Over",420,150);
+ctx.fillStyle="rgba(0,0,0,0.7)";
+ctx.fillRect(0,0,canvas.width,canvas.height);
 
-ctx.font="20px Arial";
-ctx.fillText("Press R to Restart",430,200);
+ctx.fillStyle="white";
+ctx.font="50px Arial";
+ctx.fillText("YOU DIED",380,150);
+
+ctx.font="24px Arial";
+ctx.fillText("Score: "+score,450,210);
+
+ctx.fillText("Press R to Restart",400,260);
 
 }
 
