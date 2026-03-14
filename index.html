@@ -2,20 +2,20 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Mini Geometry Dash</title>
+<title>Geometry Dash Browser Clone</title>
 
 <style>
 body{
   margin:0;
   overflow:hidden;
-  background:#111;
+  background:#0f0f0f;
   font-family:Arial;
 }
 
 canvas{
   display:block;
   margin:auto;
-  background:#222;
+  background:#1c1c1c;
 }
 
 #ui{
@@ -23,32 +23,43 @@ canvas{
   top:10px;
   left:10px;
   color:white;
-  font-size:20px;
+  font-size:18px;
+}
+
+#ui span{
+  margin-right:15px;
 }
 </style>
-</head>
 
+</head>
 <body>
 
-<div id="ui">Score: <span id="score">0</span></div>
+<div id="ui">
+<span>Score: <b id="score">0</b></span>
+<span>High Score: <b id="high">0</b></span>
+</div>
+
 <canvas id="game"></canvas>
 
 <script>
+
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-canvas.width = 900;
+canvas.width = 1000;
 canvas.height = 400;
 
-let player = {
-  x:120,
-  y:300,
-  size:30,
-  dy:0,
-  gravity:0.7,
-  jump:-12,
-  grounded:false,
-  rotation:0
+let gravityDirection = 1;
+
+let player={
+x:150,
+y:300,
+size:30,
+dy:0,
+gravity:0.7,
+jump:-12,
+grounded:false,
+rotation:0
 };
 
 let obstacles=[];
@@ -56,152 +67,266 @@ let frame=0;
 let score=0;
 let gameOver=false;
 
+let highScore = localStorage.getItem("gd_high") || 0;
+document.getElementById("high").textContent = highScore;
+
 function spawnObstacle(){
 
-  const type = Math.random() < 0.5 ? "spike":"block";
+let r = Math.random();
 
-  obstacles.push({
-    x:canvas.width,
-    y: type==="spike" ? 330 : 300,
-    w:30,
-    h:30,
-    type:type
-  });
+let type="spike";
+
+if(r < 0.3) type="spike";
+else if(r < 0.55) type="double";
+else if(r < 0.75) type="block";
+else if(r < 0.9) type="jumppad";
+else type="portal";
+
+obstacles.push({
+x:canvas.width,
+type:type,
+width:30,
+height:30,
+y:300
+});
+
+}
+
+function jump(){
+
+if(player.grounded){
+player.dy = player.jump * gravityDirection;
+player.grounded=false;
+}
 
 }
 
 document.addEventListener("keydown",e=>{
 
-  if(e.code==="Space" && player.grounded){
-    player.dy = player.jump;
-    player.grounded=false;
-  }
+if(e.code==="Space") jump();
 
-  if(gameOver && e.code==="KeyR"){
-    location.reload();
-  }
+if(gameOver && e.code==="KeyR"){
+location.reload();
+}
 
 });
 
+canvas.addEventListener("touchstart",jump);
+
 function update(){
 
-  if(gameOver) return;
+if(gameOver) return;
 
-  frame++;
-  score++;
+frame++;
+score++;
 
-  if(frame % 100 ===0){
-    spawnObstacle();
-  }
+if(frame % 110 ===0) spawnObstacle();
 
-  player.dy += player.gravity;
-  player.y += player.dy;
+player.dy += player.gravity * gravityDirection;
+player.y += player.dy;
 
-  if(!player.grounded){
-    player.rotation += 0.15;
-  }
-
-  if(player.y > 300){
-    player.y=300;
-    player.dy=0;
-    player.grounded=true;
-    player.rotation=0;
-  }
-
-  obstacles.forEach(o=>{
-    o.x -=6;
-
-    if(
-      player.x < o.x + o.w &&
-      player.x + player.size > o.x &&
-      player.y < o.y + o.h &&
-      player.y + player.size > o.y
-    ){
-      gameOver=true;
-    }
-  });
-
-  obstacles = obstacles.filter(o=>o.x>-50);
-
-  document.getElementById("score").textContent=score;
+if(!player.grounded){
+player.rotation += 0.15 * gravityDirection;
 }
 
-function drawPlayer(){
+let groundY = gravityDirection === 1 ? 300 : 0;
 
-  ctx.save();
+if(gravityDirection === 1){
 
-  ctx.translate(
-    player.x + player.size/2,
-    player.y + player.size/2
-  );
-
-  ctx.rotate(player.rotation);
-
-  ctx.fillStyle="#0f0";
-
-  ctx.fillRect(
-    -player.size/2,
-    -player.size/2,
-    player.size,
-    player.size
-  );
-
-  ctx.restore();
+if(player.y > 300){
+player.y=300;
+player.dy=0;
+player.grounded=true;
+player.rotation=0;
 }
 
-function drawObstacles(){
+}else{
 
-  obstacles.forEach(o=>{
+if(player.y < 0){
+player.y=0;
+player.dy=0;
+player.grounded=true;
+player.rotation=0;
+}
 
-    if(o.type==="block"){
+}
 
-      ctx.fillStyle="#f00";
-      ctx.fillRect(o.x,o.y,o.w,o.h);
+obstacles.forEach(o=>{
 
-    }else if(o.type==="spike"){
+o.x -=6;
 
-      ctx.fillStyle="#ff5555";
+if(o.type==="jumppad"){
 
-      ctx.beginPath();
-      ctx.moveTo(o.x, o.y+o.h);
-      ctx.lineTo(o.x + o.w/2, o.y);
-      ctx.lineTo(o.x + o.w, o.y+o.h);
-      ctx.closePath();
-      ctx.fill();
+if(
+player.x < o.x + 30 &&
+player.x + player.size > o.x &&
+player.y + player.size >= 300 &&
+player.y + player.size <= 310
+){
+player.dy = -16 * gravityDirection;
+}
 
-    }
+}
 
-  });
+if(o.type==="portal"){
+
+if(
+player.x < o.x + 30 &&
+player.x + player.size > o.x &&
+player.y < o.y + 30 &&
+player.y + player.size > o.y
+){
+
+gravityDirection *= -1;
+
+}
+
+}
+
+if(o.type==="spike" || o.type==="block" || o.type==="double"){
+
+let width = o.type==="double" ? 60 : 30;
+
+if(
+player.x < o.x + width &&
+player.x + player.size > o.x &&
+player.y < o.y + 30 &&
+player.y + player.size > o.y
+){
+gameOver=true;
+}
+
+}
+
+});
+
+obstacles = obstacles.filter(o=>o.x > -100);
+
+document.getElementById("score").textContent = score;
+
+if(gameOver){
+
+if(score > highScore){
+localStorage.setItem("gd_high",score);
+}
+
+}
+
+}
+
+function drawCube(){
+
+ctx.save();
+
+ctx.translate(
+player.x + player.size/2,
+player.y + player.size/2
+);
+
+ctx.rotate(player.rotation);
+
+ctx.fillStyle="#00ff88";
+
+ctx.fillRect(
+-player.size/2,
+-player.size/2,
+player.size,
+player.size
+);
+
+ctx.restore();
+
+}
+
+function drawObstacle(o){
+
+if(o.type==="block"){
+
+ctx.fillStyle="#ff4444";
+ctx.fillRect(o.x,300,30,30);
+
+}
+
+if(o.type==="spike"){
+
+ctx.fillStyle="#ff6666";
+
+ctx.beginPath();
+ctx.moveTo(o.x,330);
+ctx.lineTo(o.x+15,300);
+ctx.lineTo(o.x+30,330);
+ctx.fill();
+
+}
+
+if(o.type==="double"){
+
+ctx.fillStyle="#ff6666";
+
+ctx.beginPath();
+ctx.moveTo(o.x,330);
+ctx.lineTo(o.x+15,300);
+ctx.lineTo(o.x+30,330);
+ctx.fill();
+
+ctx.beginPath();
+ctx.moveTo(o.x+30,330);
+ctx.lineTo(o.x+45,300);
+ctx.lineTo(o.x+60,330);
+ctx.fill();
+
+}
+
+if(o.type==="jumppad"){
+
+ctx.fillStyle="#00aaff";
+ctx.fillRect(o.x,320,30,10);
+
+}
+
+if(o.type==="portal"){
+
+ctx.strokeStyle="#bb55ff";
+ctx.lineWidth=4;
+
+ctx.beginPath();
+ctx.arc(o.x+15,315,15,0,Math.PI*2);
+ctx.stroke();
+
+}
 
 }
 
 function draw(){
 
-  ctx.clearRect(0,0,canvas.width,canvas.height);
+ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  drawPlayer();
-  drawObstacles();
+ctx.fillStyle="#777";
+ctx.fillRect(0,330,canvas.width,70);
 
-  ctx.fillStyle="#888";
-  ctx.fillRect(0,330,canvas.width,70);
+drawCube();
 
-  if(gameOver){
+obstacles.forEach(drawObstacle);
 
-    ctx.fillStyle="white";
-    ctx.font="40px Arial";
-    ctx.fillText("Game Over",350,150);
+if(gameOver){
 
-    ctx.font="20px Arial";
-    ctx.fillText("Press R to Restart",360,200);
+ctx.fillStyle="white";
+ctx.font="40px Arial";
+ctx.fillText("Game Over",420,150);
 
-  }
+ctx.font="20px Arial";
+ctx.fillText("Press R to Restart",430,200);
+
+}
 
 }
 
 function loop(){
-  update();
-  draw();
-  requestAnimationFrame(loop);
+
+update();
+draw();
+requestAnimationFrame(loop);
+
 }
 
 loop();
